@@ -2,12 +2,15 @@
 
     .venv/bin/python artifact/records.py records.txt        # one or more files
     pbpaste | .venv/bin/python artifact/records.py          # straight from the clipboard
+    .venv/bin/python artifact/records.py games.csv          # CSV download of the Google Sheet
 
 Every line starting with NCHORO-RECORD is replayed through the engine under the current
 rules. A record whose moves are illegal or whose score doesn't match is reported, not counted.
 """
 
 import collections
+import csv
+import io
 import json
 import os
 import sys
@@ -43,6 +46,17 @@ def main():
     current = rules_id(rules)
     text = "".join(open(p).read() for p in sys.argv[1:]) if sys.argv[1:] else sys.stdin.read()
     recs, seen = [], set()
+    if text.lstrip().startswith("received_at,"):        # CSV export of the Google Sheet
+        for row in csv.DictReader(io.StringIO(text)):
+            rec = {"status": row["status"], "result": row["result"], "humanSide": int(row["human_side"] or 0),
+                   "level": row["level"], "rulesId": row["rules_id"], "moves": row["moves"],
+                   "moveCount": int(row["move_count"] or 0), "startedAt": row["started_at"] or row["received_at"],
+                   "scores": {"human": int(row["human_score"] or 0), "ai": int(row["ai_score"] or 0)}}
+            key = (rec["startedAt"], rec["moves"])
+            if key not in seen:
+                seen.add(key)
+                recs.append(rec)
+        text = ""
     for line in text.splitlines():
         if "NCHORO-RECORD " not in line:
             continue
@@ -57,10 +71,13 @@ def main():
         seen.add(key)
         recs.append(rec)
 
-    good = []
+    good, abandoned = [], 0
     for r in recs:
         if r.get("rulesId") != current:
             print(f"- {r['startedAt']}: played under other rules ({r.get('rulesId')}), not checked")
+            continue
+        if r["status"] != "finished":
+            abandoned += 1
             continue
         problem = replay(r, rules)
         if problem:
@@ -68,7 +85,7 @@ def main():
         else:
             good.append(r)
 
-    print(f"\n{len(good)} verified game(s) under the current rules ({current})")
+    print(f"\n{len(good)} verified finished game(s) under the current rules ({current}); {abandoned} abandoned")
     if not good:
         return
     by = collections.defaultdict(lambda: collections.Counter())

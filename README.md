@@ -33,7 +33,15 @@ Each iteration prints self-play results and scores against two fixed baselines (
 
 Reports first-player advantage, draws, length, relay laps, captures and how games end.
 
-## Published test page
+## Online
+
+- **Game:** https://weztastic.github.io/nchoro (GitHub Pages, built into `docs/`). Every game played
+  against the AI is recorded anonymously to a Google Sheet; see `sheets/SETUP.md`.
+- **How the AI thinks:** https://weztastic.github.io/nchoro/inside.html
+
+After changing rules or retraining: `.venv/bin/python artifact/build.py`, then commit and push `docs/`.
+
+## Published test page (claude.ai)
 
 https://claude.ai/artifact/LeqsTvpEST1m4QEGHtBTKC — runs entirely in the browser (JS port in
 `artifact/engine.js`, checked against Python by `tests/test_js_parity.py`). Finished games against the

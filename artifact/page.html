@@ -233,14 +233,14 @@ details.rules li::marker { font-family: var(--font-mono); color: var(--muted); }
 
   <section class="card" id="record">
     <div class="record-head">
-      <h2>Testers vs the AI</h2>
+      <h2 id="record-title">Testers vs the AI</h2>
       <span class="saved" id="record-note">Connecting to the shared record…</span>
     </div>
     <div class="tally">
       <div><b id="t-games">0</b><span>games finished</span></div>
-      <div><b id="t-wins">0</b><span>won by testers</span></div>
+      <div><b id="t-wins">0</b><span id="t-wins-label">won by testers</span></div>
       <div><b id="t-draws">0</b><span>drawn</span></div>
-      <div><b id="t-people">0</b><span>testers</span></div>
+      <div><b id="t-people">0</b><span id="t-people-label">testers</span></div>
     </div>
     <div class="recent" id="recent"><div class="empty">No games recorded yet. Finish a game against the AI to add the first one.</div></div>
   </section>
@@ -265,6 +265,8 @@ details.rules li::marker { font-family: var(--font-mono); color: var(--muted); }
 <script>
 "use strict";
 const MODEL = /*__WEIGHTS__*/null;
+// Where finished games are recorded: claude.ai's page storage, or a Google Sheet web app (GitHub Pages build).
+const SITE = /*__SITE__*/{ "backend": "claude", "name": "Nchoro Amarachi style" };
 const LEVELS = { easy: { sims: 0, label: "Easy" }, gentle: { sims: 24, label: "Gentle" }, strong: { sims: 200, label: "Strong" }, full: { sims: 800, label: "Full" } };
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -538,7 +540,7 @@ function gameRecord(status) {
 function shareText(rec) {
   const outcome = rec.result === "human" ? "won" : rec.result === "ai" ? "lost" : "drew";
   return [
-    "Nchoro Amarachi style: game record",
+    `${SITE.name}: game record`,
     `I ${outcome} ${rec.scores.human}-${rec.scores.ai} against the ${LEVELS[rec.level].label} AI, moving ${rec.humanSide === 1 ? "first" : "second"}.`,
     `${rec.moveCount} moves. ${rec.endReason[0].toUpperCase() + rec.endReason.slice(1)}.`,
     `Moves (player + pit): ${rec.moves}`,
@@ -564,6 +566,7 @@ async function copyRecord() {
 }
 
 async function saveGame(status) {
+  if (SITE.backend === "sheets") return sheetsSave(status, false);
   if (!db || !canSave || game.saved || !myId) return;
   game.saved = true;
   const doc = Object.assign(gameRecord(status), { player: myId });
@@ -602,7 +605,61 @@ async function renderRecord(docs) {
   }
 }
 
+// ---------------------------------------------------------------- Google Sheet record (GitHub Pages build)
+function sheetsSave(status, leaving) {
+  if (!SITE.url || game.saved || game.human === null || !game.moves.length) return;
+  game.saved = true;
+  const body = JSON.stringify(Object.assign(gameRecord(status), { gameId: game.id, page: "github" }));
+  if (leaving) {                                   // page is closing: fire and forget
+    navigator.sendBeacon(SITE.url, new Blob([body], { type: "text/plain" }));
+    return;
+  }
+  fetch(SITE.url, { method: "POST", body })        // text/plain body: no CORS preflight
+    .then(r => r.json())
+    .then(j => {
+      if (!j.ok) throw new Error(j.error);
+      if (status === "finished") $("detail").textContent += " Recorded.";
+      loadSummary();
+    })
+    .catch(() => { $("record-note").textContent = "This game may not have been recorded. Check your connection."; });
+}
+
+async function loadSummary() {
+  try {
+    const sum = await (await fetch(SITE.url)).json();
+    $("t-games").textContent = sum.games;
+    $("t-wins").textContent = sum.humanWins;
+    $("t-draws").textContent = sum.draws;
+    $("t-people").textContent = sum.abandoned;
+    const box = $("recent");
+    if (!sum.recent.length) { box.innerHTML = '<div class="empty">No games recorded yet. Finish a game against the AI to add the first one.</div>'; return; }
+    box.innerHTML = "";
+    for (const d of sum.recent) {
+      const row = document.createElement("div"), left = document.createElement("span"), pill = document.createElement("span");
+      left.textContent = `A player, moving ${d.side === 1 ? "first" : "second"}, vs ${LEVELS[d.level] ? LEVELS[d.level].label : "the"} AI · ${d.human}–${d.ai} · ${d.moves} moves`;
+      pill.className = "pill " + (d.result === "human" ? "win" : d.result === "ai" ? "loss" : "draw");
+      pill.textContent = d.result === "human" ? "won" : d.result === "ai" ? "lost" : "draw";
+      row.append(left, pill); box.appendChild(row);
+    }
+  } catch (e) {
+    $("record-note").textContent = "The record isn't available right now.";
+  }
+}
+
+function connectSheets() {
+  $("record-title").textContent = "Players vs the AI";
+  $("t-wins-label").textContent = "won by players";
+  $("t-people-label").textContent = "abandoned";
+  if (!SITE.url) { $("record-note").textContent = "Game recording isn't set up on this copy of the page."; return; }
+  $("record-note").textContent = "Games against the AI are recorded anonymously (moves, result, AI level and time) to help improve the game.";
+  window.addEventListener("pagehide", () => {
+    if (game && S && S.winner === null) sheetsSave("abandoned", true);
+  });
+  loadSummary();
+}
+
 async function connectRecord() {
+  if (SITE.backend === "sheets") return connectSheets();
   if (!window.claude || !window.claude.use) { $("record-note").textContent = "Open this page on claude.ai to see and add to the record."; return; }
   [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
   if (!db) { $("record-note").textContent = "Sign in to claude.ai to see the record and save your games."; return; }
