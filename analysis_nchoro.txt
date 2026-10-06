@@ -1,0 +1,12 @@
+
+== models/nchoro/latest.pt  (iteration 60)
+   rules: 6 pits x 4 seeds, relay sowing, capture exactly 4 on both side(s), owner takes mid-sowing 4s, no feeding, ends at 4 or fewer seeds
+   300 games, 200 sims/move, first 2 moves random
+   Player 1 wins  39.3%
+   Player 2 wins  32.7%
+   Draws          28.0%
+   Avg score P1-P2: +1.0 seeds (spread ±8.6)
+   Game length: avg 40 moves, max 300
+   Laps per turn: avg 2.19, longest 9
+   Captures per game: P1 4.9, P2 6.1
+   Ended by seeds running out 95%, by move limit 5%; endless relays cut off: 0

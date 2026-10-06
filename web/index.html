@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nchoro Amarachi style</title>
+<style>
+  :root {
+    --bg: #f6f1e7; --panel: #fffaf0; --ink: #2b2118; --muted: #7a6a58; --line: #e2d5bf;
+    --wood: #9a6434; --wood-dark: #6e4422; --pit: #5a3518; --pit-hi: #7a4a22;
+    --seed: #f3e3c3; --seed-edge: #b8946a; --accent: #c0562b; --p1: #2f6f8f; --p2: #a8452a;
+    --good: #3f8a4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1712; --panel: #261f18; --ink: #efe4d2; --muted: #a8977f; --line: #3a3026;
+      --wood: #7a4e28; --wood-dark: #4f3118; --pit: #3a220f; --pit-hi: #5a3618;
+      --p1: #5aa5c9; --p2: #e07a55; --accent: #e07a55;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { margin: 0 0 2px; font-size: 28px; letter-spacing: .5px; }
+  .sub { color: var(--muted); margin-bottom: 16px; font-size: 13px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .setup { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 14px; }
+  label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+  select, button, input[type=range] { font: inherit; }
+  select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
+           color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  .rules { font-size: 12px; color: var(--muted); width: 100%; }
+
+  .scoreline { display: flex; justify-content: space-between; align-items: center; margin: 4px 4px 8px; gap: 8px; }
+  .who { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .who .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .who.active::after { content: "to move"; font-size: 11px; font-weight: 500; padding: 1px 7px;
+                       border-radius: 10px; background: var(--accent); color: #fff; }
+
+  .board-wrap { overflow-x: auto; }
+  .board { display: grid; grid-template-columns: 74px repeat(var(--n), minmax(62px, 1fr)) 74px;
+           grid-template-rows: auto auto; gap: 14px 10px; padding: 30px 16px; min-width: 620px;
+           background: linear-gradient(160deg, var(--wood), var(--wood-dark)); border-radius: 22px;
+           box-shadow: inset 0 2px 0 rgba(255,255,255,.15), 0 6px 18px rgba(0,0,0,.25); }
+  .store { grid-row: 1 / span 2; border-radius: 34px; background: var(--pit);
+           box-shadow: inset 0 4px 10px rgba(0,0,0,.5); display: flex; flex-direction: column;
+           align-items: center; justify-content: center; color: var(--seed); gap: 4px; }
+  .store .num { font-size: 26px; font-weight: 700; }
+  .store .lbl { font-size: 11px; opacity: .8; }
+  .store.flash { animation: flash .5s; }
+  .pit { position: relative; aspect-ratio: 1; border-radius: 50%; background: var(--pit);
+         box-shadow: inset 0 4px 10px rgba(0,0,0,.55); transition: background .15s, box-shadow .15s; }
+  /* label on the pit's outer edge (below the bottom row, above the top row): "a  4" */
+  .pit .label { position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 115%);
+                display: flex; gap: 5px; align-items: center; white-space: nowrap;
+                font-size: 11px; color: rgba(255,255,255,.75); }
+  .row-top .label { bottom: auto; top: 0; transform: translate(-50%, -115%); }
+  .pit .count { font-size: 12px; font-weight: 700; color: #fff; background: rgba(0,0,0,.45);
+                padding: 0 6px; border-radius: 8px; }
+  .seed { position: absolute; width: 13%; height: 13%; border-radius: 50%;
+          background: radial-gradient(circle at 35% 30%, #fff8, transparent 55%), var(--seed);
+          border: 1px solid var(--seed-edge); transform: translate(-50%, -50%); }
+  .pit.legal { cursor: pointer; box-shadow: inset 0 4px 10px rgba(0,0,0,.55), 0 0 0 3px var(--good); }
+  .pit.legal:hover { background: var(--pit-hi); }
+  .pit.source { box-shadow: inset 0 4px 10px rgba(0,0,0,.55), 0 0 0 3px #f5c542; }
+  .pit.sow { background: var(--pit-hi); }
+  .pit.capture { box-shadow: inset 0 4px 10px rgba(0,0,0,.55), 0 0 0 4px #ff5a3c; animation: flash .5s; }
+  .pit .pref { position: absolute; left: 12%; right: 12%; height: 5px; border-radius: 3px;
+               background: rgba(0,0,0,.35); overflow: hidden; }
+  .row-bottom .pref { top: 6%; } .row-top .pref { bottom: 6%; }
+  .pit .pref > i { display: block; height: 100%; background: #f5c542; }
+  @keyframes flash { 50% { filter: brightness(1.8); } }
+
+  .under { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 700px) { .under { grid-template-columns: 1fr; } }
+  .status { font-weight: 600; min-height: 1.4em; }
+  .hand { color: var(--muted); font-size: 13px; min-height: 1.3em; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .winbar { height: 14px; border-radius: 7px; overflow: hidden; display: flex; margin: 6px 0 2px; background: var(--line); }
+  .winbar > div { transition: width .4s; }
+  .winlbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .log { max-height: 260px; overflow-y: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .log div { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+  .log .cap { color: var(--accent); font-weight: 600; }
+  h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nchoro Amarachi style</h1>
+  <div class="sub">Relay-sowing mancala. Choose a pit on your side. A pit that reaches exactly 4 goes to its owner at once; a last seed that makes 4 is yours on either side.
+    The game ends when 4 or fewer seeds are left.</div>
+
+  <div class="panel setup">
+    <label>Player 1 (bottom)<select id="p1"></select></label>
+    <label>Player 2 (top)<select id="p2"></select></label>
+    <label>AI thinking (simulations)
+      <select id="sims"><option>50</option><option selected>200</option><option>800</option><option>2000</option></select>
+    </label>
+    <button class="primary" id="newgame">New game</button>
+    <div class="rules" id="rules"></div>
+  </div>
+
+  <div class="scoreline">
+    <div class="who" id="who2"><span class="dot" style="background:var(--p2)"></span><span id="name2">Player 2</span></div>
+    <div class="who" id="who1"><span class="dot" style="background:var(--p1)"></span><span id="name1">Player 1</span></div>
+  </div>
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <div class="under">
+    <div class="panel">
+      <div class="status" id="status">Choose players and press New game.</div>
+      <div class="hand" id="hand"></div>
+      <div class="controls">
+        <button id="play" disabled>▶ Play</button>
+        <button id="step" disabled>Step</button>
+        <button id="skip" disabled>Skip animation</button>
+        <label style="flex-direction:row;align-items:center;gap:6px">Speed
+          <input type="range" id="speed" min="0" max="100" value="55"></label>
+      </div>
+      <h3 style="margin-top:14px">AI win estimate</h3>
+      <div class="winbar"><div id="win1" style="width:50%;background:var(--p1)"></div><div id="win2" style="width:50%;background:var(--p2)"></div></div>
+      <div class="winlbl"><span id="win1t">P1 –</span><span id="win2t">P2 –</span></div>
+      <div class="hand" style="margin-top:6px">Yellow bars in the pits show how much the AI considered each move.</div>
+    </div>
+    <div class="panel">
+      <h3>Moves</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let game = null, state = null, specs = [], names = ["Player 1", "Player 2"];
+let running = false, autoplay = false, busy = false, skip = false;
+let shown = { board: [], scores: [0, 0] }, marks = {}, prefs = null;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const delay = () => skip ? 0 : Math.round(600 * Math.pow(0.03, $("speed").value / 100));
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify(body) } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+// ---------------------------------------------------------------- board drawing
+const N = () => state.rules.pits;
+const letter = abs => "abcdefghijklmnop"[abs % N()];
+const seedPos = k => {                       // golden-angle spiral, stable per seed index
+  const r = 30 * Math.sqrt((k + 0.5) / 18), a = k * 2.39996;
+  return [50 + Math.min(r, 34) * Math.cos(a), 50 + Math.min(r, 34) * Math.sin(a)];
+};
+
+function buildBoard() {
+  const b = $("board"), n = N();
+  b.style.setProperty("--n", n);
+  b.innerHTML = "";
+  const store = p => { const d = document.createElement("div"); d.className = "store"; d.id = "store" + p;
+    d.innerHTML = `<div class="num">0</div><div class="lbl">P${p + 1} captured</div>`; return d; };
+  const s2 = store(1); s2.style.gridColumn = "1"; b.appendChild(s2);
+  for (let i = 2 * n - 1; i >= n; i--) b.appendChild(pitEl(i, "row-top", 1));
+  const s1 = store(0); s1.style.gridColumn = String(n + 2); b.appendChild(s1);
+  for (let i = 0; i < n; i++) b.appendChild(pitEl(i, "row-bottom", 2));
+}
+
+function pitEl(i, cls, row) {
+  const d = document.createElement("div");
+  d.className = "pit " + cls; d.id = "pit" + i; d.style.gridRow = row;
+  d.onclick = () => humanMove(i);
+  return d;
+}
+
+function render() {
+  const n = N();
+  for (let i = 0; i < 2 * n; i++) {
+    const el = $("pit" + i), c = shown.board[i];
+    let html = `<span class="label">${letter(i)}<span class="count">${c}</span></span>`;
+    for (let k = 0; k < Math.min(c, 40); k++) {
+      const [x, y] = seedPos(k);
+      html += `<span class="seed" style="left:${x}%;top:${y}%"></span>`;
+    }
+    const owner = Math.floor(i / n);
+    if (prefs && owner === prefs.player) {
+      const v = prefs.visits[i % n] / prefs.total;
+      html += `<div class="pref"><i style="width:${(v * 100).toFixed(0)}%"></i></div>`;
+    }
+    el.innerHTML = html;
+    el.className = el.className.split(" ").filter(c => c === "pit" || c.startsWith("row-")).join(" ");
+    if (marks[i]) el.classList.add(marks[i]);
+    if (isHumanTurn() && state.legal_moves.includes(i - state.to_move * n) && owner === state.to_move && !busy)
+      el.classList.add("legal");
+  }
+  $("store0").querySelector(".num").textContent = shown.scores[0];
+  $("store1").querySelector(".num").textContent = shown.scores[1];
+  $("who1").classList.toggle("active", state.winner === null && state.to_move === 0);
+  $("who2").classList.toggle("active", state.winner === null && state.to_move === 1);
+}
+
+// ---------------------------------------------------------------- game flow
+const isHumanTurn = () => state && state.winner === null && specs[state.to_move] === "human";
+const bothAI = () => specs[0] !== "human" && specs[1] !== "human";
+
+async function newGame() {
+  specs = [$("p1").value, $("p2").value];
+  names = specs.map((s, i) => `P${i + 1}: ` + $("p" + (i + 1)).selectedOptions[0].text);
+  $("name1").textContent = names[0]; $("name2").textContent = names[1];
+  try {
+    game = await api("/api/new", { p1: specs[0], p2: specs[1], sims: +$("sims").value });
+  } catch (e) { $("status").textContent = e.message; return; }
+  state = game.state;
+  shown = { board: state.board.slice(), scores: state.scores.slice() };
+  marks = {}; prefs = null; autoplay = !bothAI(); skip = false;
+  $("rules").textContent = "Rules: " + game.rules_text;
+  $("log").innerHTML = ""; setWin(null);
+  buildBoard(); render(); updateControls(); next();
+}
+
+function updateControls() {
+  $("play").disabled = !state || !bothAI() || state.winner !== null;
+  $("play").textContent = autoplay && bothAI() ? "❚❚ Pause" : "▶ Play";
+  $("step").disabled = !state || !bothAI() || state.winner !== null || busy;
+  $("skip").disabled = !busy;
+}
+
+async function next() {
+  if (!state || busy) return;
+  updateControls();
+  if (state.winner !== null) return finish();
+  if (isHumanTurn()) {
+    $("status").textContent = `${names[state.to_move]} — choose a pit on your side`;
+    $("hand").textContent = ""; render(); return;
+  }
+  if (bothAI() && !autoplay) { $("status").textContent = "Paused — press Play or Step"; return; }
+  await aiMove();
+}
+
+async function aiMove() {
+  busy = true; updateControls();
+  $("status").textContent = `${names[state.to_move]} is thinking…`;
+  try {
+    const r = await api("/api/move", { id: game.id });
+    await animate(r);
+  } catch (e) { $("status").textContent = e.message; }
+  busy = false; skip = false; updateControls();
+  if (autoplay) setTimeout(next, bothAI() ? Math.max(150, delay() * 2) : 50);
+}
+
+async function humanMove(abs) {
+  if (!isHumanTurn() || busy) return;
+  const n = N(), local = abs - state.to_move * n;
+  if (Math.floor(abs / n) !== state.to_move || !state.legal_moves.includes(local)) return;
+  busy = true; prefs = null; updateControls(); render();
+  try {
+    const r = await api("/api/move", { id: game.id, pit: local });
+    await animate(r);
+  } catch (e) { $("status").textContent = e.message; }
+  busy = false; skip = false; updateControls(); next();
+}
+
+async function animate(r) {
+  const n = N(), mover = r.player;
+  if (r.info && r.info.visits) {
+    prefs = { player: mover, visits: r.info.visits, total: r.info.visits.reduce((a, b) => a + b, 0) || 1 };
+    setWin(mover === 0 ? r.info.win_prob : 1 - r.info.win_prob);
+  } else prefs = null;
+  shown = { board: r.before.board.slice(), scores: r.before.scores.slice() };
+  marks = {}; render();
+  const absStart = mover * n + r.move;
+  $("status").textContent = `${names[mover]} plays ${letter(absStart)}`;
+  await sleep(delay() * 2);
+
+  const long = r.trace.length > 250;
+  let hand = 0, laps = 0, lapLimit = false, passed = null;
+  const captured = [0, 0];
+  for (const ev of r.trace) {
+    const d = long ? Math.min(delay(), 4000 / r.trace.length) : delay();
+    if (ev.type === "pickup") {
+      laps++; hand = ev.count; shown.board[ev.pit] = 0; marks = { [ev.pit]: "source" };
+      $("hand").textContent = `Lap ${laps}: picked up ${ev.count} from ${letter(ev.pit)} (P${Math.floor(ev.pit / n) + 1} side)`;
+      render(); if (d) await sleep(d * 1.6);
+    } else if (ev.type === "sow") {
+      hand--; shown.board[ev.pit]++;
+      for (const k in marks) if (marks[k] === "sow") delete marks[k];
+      marks[ev.pit] = "sow"; render();
+      $("hand").textContent = `Lap ${laps}: ${hand} seed${hand === 1 ? "" : "s"} in hand`;
+      if (d) await sleep(d);
+    } else if (ev.type === "capture") {
+      marks = { [ev.pit]: "capture" }; render(); if (d) await sleep(d * 3);
+      shown.board[ev.pit] = 0; shown.scores[ev.player] += ev.count; captured[ev.player] += ev.count;
+      const st = $("store" + ev.player); st.classList.remove("flash"); void st.offsetWidth; st.classList.add("flash");
+      render(); if (d) await sleep(d * 2);
+    } else if (ev.type === "lap_limit") {
+      lapLimit = true;
+    } else if (ev.type === "pass") {
+      passed = ev.player;
+    }
+  }
+  state = r.state;
+  shown = { board: state.board.slice(), scores: state.scores.slice() };
+  marks = {}; render();
+  $("hand").textContent = (laps > 1 ? `${laps} laps` + (lapLimit ? " — endless relay, cut off" : "") : "") +
+    (passed !== null ? `${laps > 1 ? " · " : ""}P${passed + 1} has no seeds, so P${mover + 1} plays again` : "");
+  logMove(mover, letter(absStart), laps, captured, lapLimit, passed);
+  if (passed !== null && !skip) await sleep(Math.max(600, delay() * 4));
+}
+
+function logMove(mover, l, laps, captured, lapLimit, passed) {
+  const d = document.createElement("div");
+  const mv = state.move_count;
+  d.innerHTML = `${mv}. <b style="color:var(--p${mover + 1})">P${mover + 1}</b> ${l}` +
+    (laps > 1 ? ` · ${laps} laps` : "") +
+    [mover, 1 - mover].map(p => captured[p] ? ` · <span class="cap">P${p + 1} +${captured[p]}</span>` : "").join("") +
+    (lapLimit ? ` · <span class="cap">relay cut off</span>` : "") +
+    (passed !== null ? ` · P${passed + 1} passes` : "");
+  $("log").prepend(d);
+}
+
+function finish() {
+  const w = state.winner;
+  $("status").textContent = (w === -1 ? "Draw" : `${names[w]} wins`) + ` ${state.scores[0]}–${state.scores[1]}`;
+  $("hand").textContent = state.end_reason + " (remaining seeds go to whoever's side they're on)";
+  autoplay = false; render(); updateControls();
+}
+
+function setWin(p1) {
+  if (p1 === null) { $("win1").style.width = "50%"; $("win2").style.width = "50%";
+    $("win1t").textContent = "P1 –"; $("win2t").textContent = "P2 –"; return; }
+  $("win1").style.width = (p1 * 100) + "%"; $("win2").style.width = ((1 - p1) * 100) + "%";
+  $("win1t").textContent = `P1 ${(p1 * 100).toFixed(0)}%`; $("win2t").textContent = `P2 ${((1 - p1) * 100).toFixed(0)}%`;
+}
+
+// ---------------------------------------------------------------- wiring
+$("newgame").onclick = newGame;
+$("play").onclick = () => { autoplay = !autoplay; updateControls(); if (autoplay) next(); };
+$("step").onclick = () => { if (!busy) aiMove(); };
+$("skip").onclick = () => { skip = true; };
+
+(async () => {
+  const players = await api("/api/players");
+  for (const sel of ["p1", "p2"]) {
+    for (const p of players) {
+      const o = document.createElement("option"); o.value = p.id; o.textContent = p.label;
+      if (p.rules_text) o.title = p.rules_text;
+      $(sel).appendChild(o);
+    }
+  }
+  $("p1").value = "human";
+  const az = players.filter(p => p.id.endsWith(".pt"));
+  $("p2").value = az.length ? az[0].id : "minimax-3";
+})();
+</script>
+</body>
+</html>

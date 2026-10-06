@@ -1,0 +1,17 @@
+{
+  "pits": 6,
+  "seeds": 4,
+  "sowing": "relay",
+  "capture_counts": [
+    4
+  ],
+  "capture_side": "both",
+  "capture_chain": false,
+  "instant_capture": true,
+  "skip_origin": false,
+  "sweep_own": false,
+  "feeding": false,
+  "end_at": 4,
+  "max_laps": 200,
+  "max_moves": 300
+}

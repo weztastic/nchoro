@@ -1,0 +1,567 @@
+<title>Inside the Nchoro AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a single reading column of five steps (sees, instinct, search, decision, learning); one live board pinned at the top drives every step. */
+:root {
+  --ground: #e8ebe3; --surface: #f5f6f1; --ink: #1c221e; --muted: #5d6860; --rule: #cfd5cb;
+  --indigo: #2e3d8c; --indigo-soft: #c9cfee; --indigo-ink: #ffffff;
+  --camwood: #a3402a; --good: #2f7a45; --gold: #b8860b;
+  --wood: #7a4724; --wood-deep: #4b2a14; --pit: #2c180b; --pit-lit: #4a2a13;
+  --seed: #c8c7b3; --seed-edge: #8d8b74; --on-wood: #f1e6d6;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Verdana", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #121613; --surface: #1a1f1b; --ink: #e5e8e1; --muted: #9aa49c; --rule: #2c332e;
+    --indigo: #8e9bf0; --indigo-soft: #2b3366; --indigo-ink: #10142c; --camwood: #ea8466; --good: #6cc489; --gold: #e7b84a;
+    --wood: #6a3d1f; --wood-deep: #3b200f; --pit: #1f1007; --pit-lit: #3d2210;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #121613; --surface: #1a1f1b; --ink: #e5e8e1; --muted: #9aa49c; --rule: #2c332e;
+  --indigo: #8e9bf0; --indigo-soft: #2b3366; --indigo-ink: #10142c; --camwood: #ea8466; --good: #6cc489; --gold: #e7b84a;
+  --wood: #6a3d1f; --wood-deep: #3b200f; --pit: #1f1007; --pit-lit: #3d2210;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 0.9375rem/1.55 var(--font-body); }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 30px; }
+h1 { font: 800 clamp(2rem, 5vw, 3.2rem)/1 var(--font-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font: 700 1.5rem/1.15 var(--font-display); margin: 0; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .step { font: 600 0.8rem/1 var(--font-mono); color: var(--indigo); border: 1px solid var(--indigo); border-radius: 999px; padding: 4px 8px; }
+p { margin: 0; max-width: 66ch; }
+.lede { color: var(--muted); font-size: 1.05rem; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+section { display: grid; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 18px; padding: 18px; display: grid; gap: 14px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 700 0.85rem/1 var(--font-body); padding: 9px 14px; border-radius: 999px; cursor: pointer;
+         border: 1px solid var(--rule); background: var(--surface); color: var(--ink); }
+button.primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+button[aria-pressed="true"] { background: var(--indigo); color: var(--indigo-ink); border-color: var(--indigo); }
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+
+/* board */
+.stage { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--ground); padding-block: 8px; display: grid; gap: 8px; }
+.board-scroll { overflow-x: auto; }
+.board { display: grid; grid-template-columns: 56px repeat(6, 1fr) 56px; gap: 22px 9px; padding: 22px 14px; min-width: 460px;
+         border-radius: 30px; background: repeating-linear-gradient(94deg, rgba(0,0,0,.09) 0 2px, transparent 2px 11px), linear-gradient(170deg, var(--wood), var(--wood-deep));
+         box-shadow: inset 0 2px 0 rgba(255,255,255,.14), 0 10px 22px rgba(0,0,0,.2); }
+.store { grid-row: 1 / span 2; border-radius: 28px; background: var(--pit); box-shadow: inset 0 5px 12px rgba(0,0,0,.6);
+         display: grid; place-content: center; justify-items: center; color: var(--on-wood); }
+.store b { font: 600 1.4rem/1 var(--font-mono); } .store span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+.pit { position: relative; aspect-ratio: 1; border-radius: 50%; background: var(--pit); border: 0; padding: 0;
+       box-shadow: inset 0 5px 10px rgba(0,0,0,.65); cursor: default; }
+.pit.legal { cursor: pointer; box-shadow: inset 0 5px 10px rgba(0,0,0,.65), 0 0 0 2px var(--seed); }
+.pit.legal:hover { background: var(--pit-lit); }
+.pit.best { box-shadow: inset 0 5px 10px rgba(0,0,0,.65), 0 0 0 3px #f2c14e; }
+.pit .tag { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; align-items: center; white-space: nowrap;
+            color: var(--on-wood); font: 500 10px/1 var(--font-mono); }
+.pit.b .tag { top: calc(100% + 5px); } .pit.t .tag { bottom: calc(100% + 5px); }
+.pit .tag b { font: 600 11px/1 var(--font-mono); background: rgba(0,0,0,.4); padding: 2px 5px; border-radius: 6px; }
+.seed { position: absolute; width: 15%; height: 15%; border-radius: 50%; transform: translate(-50%, -50%);
+        background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.75), transparent 45%), var(--seed); border: 1px solid var(--seed-edge); }
+.stage-line { display: grid; gap: 4px; font-size: 0.9rem; }
+#turn { font-weight: 700; }
+#movemsg { color: var(--muted); min-height: 1.4em; }
+.pit.from { box-shadow: inset 0 5px 10px rgba(0,0,0,.65), 0 0 0 3px #f2c14e; }
+.pit.drop { background: var(--pit-lit); }
+.pit.take { box-shadow: inset 0 5px 10px rgba(0,0,0,.65), 0 0 0 4px var(--camwood); }
+
+/* step 1: input grid */
+.enc-scroll { overflow-x: auto; }
+.enc { display: grid; grid-template-columns: 74px repeat(16, 22px) 52px; gap: 3px; font: 500 10px/1 var(--font-mono); min-width: 520px; }
+.enc .h { color: var(--muted); text-align: center; align-self: end; }
+.enc .lab { color: var(--muted); align-self: center; }
+.enc .c { height: 18px; border-radius: 3px; background: var(--rule); }
+.enc .c.on { background: var(--indigo); }
+.enc .amt { align-self: center; height: 8px; border-radius: 4px; background: var(--gold); }
+.enc .gap { grid-column: 1 / -1; height: 4px; }
+
+/* bars */
+.bars { display: grid; grid-template-columns: 34px 1fr 52px; gap: 6px 10px; align-items: center; font-size: .85rem; }
+.bars .t { height: 14px; border-radius: 7px; background: var(--rule); overflow: hidden; display: flex; }
+.bars .t i { display: block; height: 100%; }
+.i-prior { background: var(--gold); } .i-visit { background: var(--indigo); } .i-q { background: var(--good); } .i-u { background: var(--gold); }
+.meter { display: grid; gap: 4px; }
+.meter .t { height: 12px; border-radius: 6px; background: var(--rule); overflow: hidden; }
+.meter .t i { display: block; height: 100%; background: var(--indigo); }
+.big { font: 600 2.2rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* step 3: search */
+.tbl-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: .85rem; }
+th { text-align: left; font-weight: 700; color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; vertical-align: middle; }
+td.n { font-family: var(--font-mono); text-align: right; }
+tr.next td:first-child { box-shadow: inset 4px 0 0 var(--gold); }
+.split { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--rule); min-width: 120px; }
+.split i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--k); vertical-align: -1px; }
+.tree-scroll { overflow-x: auto; }
+svg.tree { display: block; width: 100%; min-width: 560px; height: auto; }
+svg.tree .edge { stroke: var(--rule); stroke-width: 1.5; fill: none; }
+svg.tree .edge.hot { stroke: var(--gold); stroke-width: 3.5; }
+svg.tree .node { fill: var(--indigo); stroke: var(--surface); stroke-width: 2; }
+svg.tree .node.hot { stroke: var(--gold); stroke-width: 3.5; }
+svg.tree .node.new { fill: var(--surface); stroke: var(--indigo); stroke-dasharray: 3 2; }
+svg.tree text { fill: var(--ink); font: 500 11px var(--font-mono); }
+svg.tree text.dim { fill: var(--muted); }
+.story { font-size: .9rem; background: var(--ground); border-radius: 12px; padding: 12px 14px; min-height: 3.2em; }
+.story b { color: var(--indigo); }
+
+/* step 5: loop */
+svg.loop { display: block; width: 100%; max-width: 640px; height: auto; }
+svg.loop rect { fill: var(--surface); stroke: var(--indigo); stroke-width: 1.5; }
+svg.loop text { fill: var(--ink); font: 600 13px var(--font-body); }
+svg.loop text.s { fill: var(--muted); font: 400 11px var(--font-body); }
+svg.loop path { stroke: var(--indigo); stroke-width: 2; fill: none; marker-end: url(#arrow); }
+svg.loop marker path { fill: var(--indigo); stroke: none; }
+.prog { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.prog div { display: grid; gap: 2px; }
+.prog b { font: 600 1.3rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.prog span { font-size: .75rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Inside the Nchoro AI</h1>
+    <p class="lede">The computer player was told only the rules. Everything it knows, it learned by playing itself. This page runs the real AI on the board below and shows, step by step, how it looks at a position and picks a move.</p>
+  </header>
+
+  <div class="stage">
+    <div class="btns" role="group" aria-label="Example positions">
+      <span class="muted" style="font-size:.85rem">Position:</span>
+      <button id="ex-open" aria-pressed="true">Opening</button>
+      <button id="ex-gift" aria-pressed="false">The gift trap</button>
+      <button id="ex-end" aria-pressed="false">Endgame</button>
+      <button id="undo">Undo move</button>
+    </div>
+    <div class="board-scroll"><div class="board" id="board"></div></div>
+    <div class="stage-line" aria-live="polite"><span id="movemsg"></span><span id="turn"></span></div>
+  </div>
+
+  <section>
+    <h2><span class="step">1</span>What it sees</h2>
+    <p>The AI doesn't see seeds. It sees a list of 207 numbers. Each pit becomes a row of 16 switches, and the one matching its seed count is switched on. The AI always looks from the side of the player to move, so "your" pits come first. A bar shows each pit's seed count again as a plain amount. Three more numbers give both captured totals and how far the game has gone.</p>
+    <div class="card">
+      <div class="enc-scroll"><div class="enc" id="enc"></div></div>
+      <p class="muted" id="enc-note" style="font-size:.85rem"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="step">2</span>Its first instinct</h2>
+    <p>Those numbers go through the neural network: three layers of 256 simple units, with about 185,000 adjustable weights in total. Out come two answers at once. One is a preference for each move, which is its gut feeling. The other is how likely the player to move is to win. All this takes less than a millisecond, with no looking ahead at all.</p>
+    <div class="card" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div style="display:grid;gap:8px">
+        <strong>Move preference</strong>
+        <div class="bars" id="prior-bars"></div>
+      </div>
+      <div style="display:grid;gap:8px;align-content:start">
+        <strong>Win estimate for <span id="v-who"></span></strong>
+        <div class="big" id="v-num">–</div>
+        <div class="meter"><div class="t"><i id="v-bar" style="width:50%"></i></div></div>
+        <p class="muted" style="font-size:.85rem">A gut feeling can be wrong. A move that looks natural can pass through a pit with 3 seeds and hand your opponent 4. That's what the next step is for.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="step">3</span>Thinking ahead</h2>
+    <p>Next the AI imagines possible futures. This is called Monte Carlo tree search. Each <b>simulation</b> starts at the current position and walks down a tree of moves. At every step it picks the move with the best score, then asks the network about the new position it reaches. That answer is passed back up the path, and every move on the way keeps a running average of how good it turned out.</p>
+    <p>The score balances two things. One is <b>results so far</b>, the average outcome of that move. The other is <b>curiosity</b>, which is big for moves the network likes but which haven't been tried much, and shrinks each time a move is visited. So the AI tests promising ideas, keeps going back to the best ones, and still checks alternatives. In a real game it runs 200 simulations per move at Strong and 800 at Full.</p>
+    <div class="card">
+      <div class="btns">
+        <button class="primary" id="s1">Run 1 simulation</button>
+        <button id="s10">+10</button>
+        <button id="s100">+100</button>
+        <button id="s800">Run to 800</button>
+        <button id="sreset">Start over</button>
+        <span class="mono muted" id="sims">0 simulations</span>
+      </div>
+      <div class="story" id="story" aria-live="polite">Press <b>Run 1 simulation</b> to watch the AI imagine its first future.</div>
+      <div class="tree-scroll"><svg class="tree" id="tree" role="img" aria-label="Search tree"></svg></div>
+      <div class="legend">
+        <span style="--k:var(--indigo)">circle size = times explored</span>
+        <span style="--k:var(--gold)">gold = path of the last simulation</span>
+        <span style="--k:var(--good)">results so far</span>
+        <span style="--k:var(--gold)">curiosity</span>
+      </div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Move</th><th>Immediate effect</th><th>Instinct</th><th>Explored</th><th>Avg result</th><th>Score = results so far + curiosity</th></tr></thead>
+        <tbody id="stbl"></tbody>
+      </table></div>
+      <p class="muted" style="font-size:.8rem">The gold mark shows which move the next simulation will start with: the one with the highest score.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="step">4</span>The decision</h2>
+    <p>After the search, the AI plays the move it explored most, not the one with the best instinct. Exploring a move many times means it kept holding up under scrutiny. Compare the two below.</p>
+    <div class="card">
+      <div class="bars" id="cmp-bars"></div>
+      <div class="legend"><span style="--k:var(--gold)">instinct (step 2)</span><span style="--k:var(--indigo)">share of simulations (step 3)</span></div>
+      <p id="verdict" style="font-weight:700"></p>
+      <div class="btns"><button class="primary" id="aimove">Let the AI play its move</button><span class="muted" style="font-size:.85rem">Only when it's the AI's turn. It tops up to 200 simulations first, like the Strong level.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="step">5</span>How it learned</h2>
+    <p>At the start the network's weights were random, so its instinct was noise. Training ran this loop again and again:</p>
+    <div class="card">
+      <svg class="loop" viewBox="0 0 640 230" role="img" aria-label="Self-play training loop">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect x="20" y="20" width="250" height="70" rx="14"/><text x="36" y="48">1. Play itself</text><text class="s" x="36" y="68">Hundreds of games, searching every move</text>
+        <rect x="370" y="20" width="250" height="70" rx="14"/><text x="386" y="48">2. Record every position</text><text class="s" x="386" y="68">with the search's choices and who won</text>
+        <rect x="370" y="140" width="250" height="70" rx="14"/><text x="386" y="168">3. Train the network</text><text class="s" x="386" y="188">Instinct learns to match the search; value the result</text>
+        <rect x="20" y="140" width="250" height="70" rx="14"/><text x="36" y="168">4. Better instinct</text><text class="s" x="36" y="188">so the next round's search sees further</text>
+        <path d="M270,55 L365,55"/><path d="M495,90 L495,135"/><path d="M370,175 L275,175"/><path d="M145,140 L145,95"/>
+      </svg>
+      <p>The trick is in step 3. The network is trained to predict what its own <b>search</b> chose. Search is smarter than instinct, so instinct improves. A better instinct guides the next search further, and so on. The win estimate is trained on who actually won each game.</p>
+      <div class="prog" id="prog"></div>
+      <p class="muted" style="font-size:.85rem" id="prog-note"></p>
+    </div>
+    <p>One lesson from training longer: this loop needs both sides to win sometimes. In these rules, small early mistakes hand the game to player 2. When player 2 won almost every training game, the network concluded that player 1 always loses. With every move looking equally lost, it had nothing left to learn from. Hours of extra training made it no stronger.</p>
+  </section>
+</div>
+
+<script>/*__ENGINE__*/</script>
+<script>
+"use strict";
+const MODEL = /*__WEIGHTS__*/null;
+const LOG = /*__LOG__*/null;
+const $ = id => document.getElementById(id);
+const dec = b64 => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new Float32Array(u.buffer); };
+const L = l => ({ in: l.in, out: l.out, w: dec(l.w), b: dec(l.b) });
+const rules = Nchoro.makeRules(MODEL.rules);
+const net = Nchoro.makeNet({ layers: MODEL.layers.map(L), policy: L(MODEL.policy), value: L(MODEL.value) });
+const mcts = new Nchoro.MCTS(net);
+const N = rules.pits, LET = "abcdef";
+const pct = x => Math.round(100 * x) + "%";
+const who = p => `Player ${p + 1}`;
+
+// Example positions from the published AI's own games.
+const EXAMPLES = {
+  "ex-open": { board: new Array(12).fill(4), scores: [0, 0], toMove: 0, moveCount: 0 },
+  "ex-gift": { board: [0, 0, 0, 2, 11, 1, 10, 3, 1, 1, 1, 2], scores: [12, 4], toMove: 1, moveCount: 5 },
+  "ex-end": { board: [1, 1, 0, 1, 2, 0, 2, 0, 2, 1, 0, 2], scores: [20, 16], toMove: 0, moveCount: 10 },
+};
+let S, history = [], root = null, inst = null, effects = {};
+let aiSide = 0, view = null, marks = {}, busy = false, thinkToken = 0, thinking = false;
+const NameOf = p => p === aiSide ? "The AI" : "You";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const snapshot = s => JSON.parse(JSON.stringify({ board: s.board, scores: s.scores, toMove: s.toMove,
+  moveCount: s.moveCount, winner: s.winner, endReason: s.endReason }));
+
+// In every example the AI is the player to move; you play the other side.
+function setPosition(p) {
+  thinkToken++; busy = false; view = null; marks = {};
+  S = Object.assign(Nchoro.initial(rules), JSON.parse(JSON.stringify(p)));
+  aiSide = S.toMove;
+  history = [];
+  $("movemsg").textContent = `You play Player ${2 - aiSide} (${aiSide === 0 ? "top" : "bottom"} row) against the AI. It's the AI's move first.`;
+  analyse(false);
+}
+
+function analyse(think) {
+  const out = net(Nchoro.encode(S));
+  const legal = Nchoro.legalMoves(S);
+  let mx = -Infinity; for (const m of legal) mx = Math.max(mx, out.logits[m]);
+  const ex = legal.map(m => Math.exp(out.logits[m] - mx)), sum = ex.reduce((a, b) => a + b, 0);
+  inst = { value: out.value, prior: Object.fromEntries(legal.map((m, k) => [m, ex[k] / sum])) };
+  effects = {};
+  for (const m of legal) {
+    const tr = []; Nchoro.play(S, m, tr);
+    const took = [0, 0]; let laps = 0;
+    for (const e of tr) { if (e.type === "capture") took[e.player] += e.count; if (e.type === "pickup") laps++; }
+    effects[m] = { mine: took[S.toMove], theirs: took[1 - S.toMove], laps };
+  }
+  root = S.winner === null ? mcts.root(S) : null;
+  mcts.last = null;
+  $("story").innerHTML = "Press <b>Run 1 simulation</b> to watch the AI imagine its first future.";
+  renderAll();
+  if (think) autoThink();
+}
+
+// After your move, the AI searches visibly up to 200 simulations (the game's Strong level).
+async function autoThink() {
+  const token = ++thinkToken;
+  thinking = true;
+  while (root && root.n < 200) {
+    mcts.simulate(root, 10);
+    narrate(root.n);
+    renderAll();
+    await sleep(70);
+    if (token !== thinkToken) { thinking = false; return; }
+  }
+  thinking = false;
+  renderBoard();
+}
+
+// ---------------------------------------------------------------- board
+function renderBoard() {
+  const b = $("board"); b.innerHTML = "";
+  const src = view || S;
+  const store = (p, col) => { const d = document.createElement("div"); d.className = "store"; d.style.gridColumn = col;
+    d.innerHTML = `<b>${src.scores[p]}</b><span>${p === aiSide ? "AI" : "You"}</span>`; return d; };
+  const yourTurn = !busy && S.winner === null && S.toMove !== aiSide;
+  const legal = yourTurn ? Nchoro.legalMoves(S) : [];
+  const best = root && root.n > 0 ? mostVisited() : null;
+  const pit = (abs, cls, row, col) => {
+    const d = document.createElement("button"); d.type = "button";
+    d.className = "pit " + cls; d.style.gridRow = row; d.style.gridColumn = col;
+    const own = Math.floor(abs / N), c = src.board[abs];
+    let h = `<span class="tag">${LET[abs % N]}<b>${c}</b></span>`;
+    for (let k = 0; k < Math.min(c, 30); k++) { const r = Math.min(34, 31 * Math.sqrt((k + .5) / 16)), a = k * 2.39996;
+      h += `<span class="seed" style="left:${(50 + r * Math.cos(a)).toFixed(1)}%;top:${(50 + r * Math.sin(a)).toFixed(1)}%"></span>`; }
+    d.innerHTML = h;
+    const isLegal = own === S.toMove && legal.includes(abs % N);
+    if (isLegal) d.classList.add("legal");
+    if (isLegal && best === abs % N) d.classList.add("best");
+    if (marks[abs]) d.classList.add(marks[abs]);
+    d.disabled = !isLegal;
+    d.setAttribute("aria-label", `${own === aiSide ? "AI" : "Your"} pit ${LET[abs % N]}, ${c} seeds`);
+    d.addEventListener("click", () => playMove(abs % N));
+    return d;
+  };
+  b.appendChild(store(1, "1"));
+  for (let k = 0; k < N; k++) b.appendChild(pit(N + (N - 1 - k), "t", 1, k + 2));
+  b.appendChild(store(0, "8"));
+  for (let k = 0; k < N; k++) b.appendChild(pit(k, "b", 2, k + 2));
+  let turn;
+  if (busy) turn = "";
+  else if (S.winner !== null) turn = `Game over: ${S.winner === -1 ? "a draw" : (S.winner === aiSide ? "the AI wins" : "you win")}, ${S.scores[1 - aiSide]}–${S.scores[aiSide]} (you–AI).`;
+  else if (S.toMove !== aiSide) turn = "Your turn: tap one of your ringed pits. Steps 1–4 below now show what the AI would think in your place.";
+  else if (root && root.n >= 200) turn = "The AI has decided. See steps 2–4 below, then press “Let the AI play its move”.";
+  else if (thinking) turn = "The AI is thinking… watch the search tree in step 3.";
+  else turn = "The AI's turn. Scroll down to see how it reads this position, or press “Let the AI play its move”.";
+  $("turn").textContent = turn;
+  $("undo").disabled = !history.length || busy;
+}
+
+async function playMove(m) {
+  if (busy || S.winner !== null) return;
+  thinkToken++; busy = true;
+  const before = S, mover = S.toMove, tr = [];
+  const after = Nchoro.play(S, m, tr);
+  history.push(snapshot(before));
+  for (const id of Object.keys(EXAMPLES)) $(id).setAttribute("aria-pressed", "false");
+  await animate(before, tr, mover, m);
+  S = after; busy = false; view = null; marks = {};
+  analyse(S.winner === null && S.toMove === aiSide);
+}
+
+// Replays a move seed by seed on the board, then sums it up in one sentence.
+async function animate(before, tr, mover, m) {
+  view = { board: before.board.slice(), scores: before.scores.slice() };
+  const d = Math.min(130, 3500 / Math.max(1, tr.length));
+  const took = [0, 0]; let laps = 0, passed = null, cut = false;
+  $("movemsg").textContent = `${NameOf(mover)} ${mover === aiSide ? "plays" : "play"} ${LET[m]}…`;
+  for (const e of tr) {
+    if (e.type === "pickup") { laps++; view.board[e.pit] = 0; marks = { [e.pit]: "from" }; renderBoard(); await sleep(d * 2); }
+    else if (e.type === "sow") { view.board[e.pit]++; for (const k in marks) if (marks[k] === "drop") delete marks[k]; marks[e.pit] = "drop"; renderBoard(); await sleep(d); }
+    else if (e.type === "capture") {
+      marks = { [e.pit]: "take" }; renderBoard(); await sleep(d * 3);
+      view.board[e.pit] = 0; view.scores[e.player] += e.count; took[e.player] += e.count; renderBoard(); await sleep(d * 2);
+    }
+    else if (e.type === "pass") passed = e.player;
+    else if (e.type === "lap_limit") cut = true;
+  }
+  const bits = [`${NameOf(mover)} played ${LET[m]}${laps > 1 ? ` (${laps} laps)` : ""}.`];
+  for (const p of [mover, 1 - mover]) if (took[p]) bits.push(`${NameOf(p)} took ${took[p]}.`);
+  if (!took[0] && !took[1]) bits.push("No captures.");
+  if (cut) bits.push("The relay never ended, so it was stopped at 200 laps.");
+  if (passed !== null) bits.push(`${NameOf(passed)} ${passed === aiSide ? "has" : "have"} no seeds, so ${mover === aiSide ? "the AI plays" : "you play"} again.`);
+  $("movemsg").textContent = bits.join(" ");
+}
+
+// ---------------------------------------------------------------- step 1
+function renderEncoding() {
+  const x = Nchoro.encode(S), box = $("enc"), me = S.toMove;
+  let h = `<span></span>`;
+  for (let c = 0; c < 16; c++) h += `<span class="h">${c === 15 ? "15+" : c}</span>`;
+  h += `<span class="h">amount</span>`;
+  for (let k = 0; k < 2 * N; k++) {
+    if (k === N) h += `<span class="gap"></span>`;
+    h += `<span class="lab">${k < N ? "your" : "their"} ${LET[k % N]}</span>`;
+    for (let c = 0; c < 16; c++) h += `<span class="c${x[k * 16 + c] ? " on" : ""}"></span>`;
+    h += `<span class="amt" style="width:${Math.min(100, x[2 * N * 16 + k] * 100 / 1.5).toFixed(0)}%"></span>`;
+  }
+  box.innerHTML = h;
+  const t = 2 * N * 17;
+  $("enc-note").textContent = `${who(me)}'s view. The last three numbers: your captured ${S.scores[me]} (${x[t].toFixed(2)}), their captured ${S.scores[1 - me]} (${x[t + 1].toFixed(2)}), move ${S.moveCount} of 300 (${x[t + 2].toFixed(2)}). That makes ${x.length} numbers.`;
+}
+
+// ---------------------------------------------------------------- step 2
+function renderInstinct() {
+  const box = $("prior-bars"); box.innerHTML = "";
+  for (let m = 0; m < N; m++) {
+    const p = inst.prior[m];
+    box.insertAdjacentHTML("beforeend", `<span class="mono">${LET[m]}</span><span class="t"><i class="i-prior" style="width:${p ? (p * 100).toFixed(1) : 0}%"></i></span><span class="mono">${p === undefined ? "empty" : pct(p)}</span>`);
+  }
+  $("v-who").textContent = who(S.toMove);
+  const w = (inst.value + 1) / 2;
+  $("v-num").textContent = S.winner === null ? pct(w) : "–";
+  $("v-bar").style.width = (w * 100).toFixed(0) + "%";
+}
+
+// ---------------------------------------------------------------- step 3
+const C = 1.5;
+function mostVisited() {
+  let best = null, n = -1;
+  for (const [m, ch] of root.children) if (ch.n > n) { n = ch.n; best = m; }
+  return best;
+}
+
+function runSims(k) {
+  if (!root || busy) return;
+  thinkToken++;
+  const target = k === "to800" ? Math.max(0, 800 - root.n) : k;
+  if (target > 0) mcts.simulate(root, target);
+  narrate(target);
+  renderAll();
+}
+
+function narrate(k) {
+  const L = mcts.last;
+  if (!L) return;
+  const path = L.moves.map(([p, m]) => `P${p + 1} ${LET[m]}`).join(" → ");
+  const leafWin = pct((L.value + 1) / 2);
+  const first = L.moves[0][1];
+  const start = k > 1 ? `Ran ${k} simulations. The last one went: ` : `Simulation ${root.n} went: `;
+  const end = L.terminal
+    ? `It reached the end of a game, a ${L.value === 0 ? "draw" : (L.value > 0 ? "win" : "loss") + " for " + who(L.player)}.`
+    : `It reached a position nobody had looked at yet, so it asked the network, which said <b>${leafWin}</b> for ${who(L.player)}, who moves there.`;
+  $("story").innerHTML = `${start}<b>${path}</b>. ${end} That result was passed back up the path, so move <b>${LET[first]}</b> now averages <b>${pct((root.children.get(first).q() + 1) / 2)}</b> for ${who(S.toMove)} after ${root.children.get(first).n} visit${root.children.get(first).n === 1 ? "" : "s"}.`;
+}
+
+function renderSearch() {
+  $("sims").textContent = root ? `${root.n} simulations` : "game over";
+  for (const id of ["s1", "s10", "s100", "s800"]) $(id).disabled = !root;
+  const tb = $("stbl"); tb.innerHTML = "";
+  if (!root) { $("tree").innerHTML = ""; return; }
+  const sq = Math.sqrt(root.n + 1);
+  let nextM = null, nextS = -1e9;
+  const rows = [];
+  for (const [m, ch] of root.children) {
+    const q = ch.q(), u = C * ch.prior * sq / (1 + ch.n), sc = q + u;
+    if (sc > nextS) { nextS = sc; nextM = m; }
+    rows.push({ m, ch, q, u });
+  }
+  for (const { m, ch, q, u } of rows) {
+    const e = effects[m];
+    const eff = [e.mine ? `you +${e.mine}` : "", e.theirs ? `they +${e.theirs}` : "", e.laps > 1 ? `${e.laps} laps` : ""].filter(Boolean).join(", ") || "no capture";
+    const tr = document.createElement("tr");
+    if (m === nextM) tr.className = "next";
+    tr.innerHTML = `<td class="mono"><b>${LET[m]}</b></td><td>${eff}</td><td class="n">${pct(ch.prior)}</td><td class="n">${ch.n}</td>
+      <td class="n">${ch.n ? pct((q + 1) / 2) : "–"}</td>
+      <td><div class="split" title="results ${q.toFixed(2)} + curiosity ${u.toFixed(2)}"><i class="i-q" style="width:${((q + 1) / 2 * 50).toFixed(1)}%"></i><i class="i-u" style="width:${Math.min(50, u / 2 * 50).toFixed(1)}%"></i></div></td>`;
+    tb.appendChild(tr);
+  }
+  renderTree();
+}
+
+function renderTree() {
+  const svg = $("tree"), kids = [...root.children.entries()];
+  const hot = new Set(mcts.last ? mcts.last.nodes : []);
+  const maxN = Math.max(1, ...kids.map(([, c]) => c.n));
+  const blocks = kids.map(([m, c]) => {
+    const g = c.children ? [...c.children.entries()].filter(([, x]) => x.n > 0).sort((a, b) => b[1].n - a[1].n).slice(0, 3) : [];
+    return { m, c, g, h: Math.max(1, g.length) * 30 };
+  });
+  const H = blocks.reduce((a, b) => a + b.h, 0) + 20;
+  const r = n => 5 + 13 * Math.sqrt(n / maxN);
+  let y = 10, out = "";
+  const rootY = H / 2;
+  for (const b of blocks) {
+    const cy = y + b.h / 2;
+    out += `<path class="edge${hot.has(b.c) ? " hot" : ""}" d="M60,${rootY} C150,${rootY} 150,${cy} 250,${cy}"/>`;
+    b.g.forEach(([gm, gc], k) => {
+      const gy = y + 15 + k * 30;
+      out += `<path class="edge${hot.has(gc) ? " hot" : ""}" d="M250,${cy} C330,${cy} 330,${gy} 420,${gy}"/>`;
+      out += `<circle class="node${hot.has(gc) ? " hot" : ""}" cx="420" cy="${gy}" r="${r(gc.n).toFixed(1)}"/>`;
+      out += `<text x="442" y="${gy + 4}">P${gc.mover + 1} ${LET[gm]} <tspan class="dim">×${gc.n} · ${pct((gc.q() + 1) / 2)}</tspan></text>`;
+    });
+    out += `<circle class="node${b.c.n ? "" : " new"}${hot.has(b.c) ? " hot" : ""}" cx="250" cy="${cy}" r="${r(b.c.n).toFixed(1)}"/>`;
+    out += `<text x="${250 - 24}" y="${cy - r(b.c.n) - 5}" text-anchor="start">P${b.c.mover + 1} ${LET[b.m]}</text>`;
+    out += `<text class="dim" x="${270}" y="${cy + 4}">×${b.c.n}${b.c.n ? " · " + pct((b.c.q() + 1) / 2) : ""}</text>`;
+    y += b.h;
+  }
+  out += `<circle class="node" cx="40" cy="${rootY}" r="16"/><text x="40" y="${rootY + 34}" text-anchor="middle">now</text>`;
+  svg.setAttribute("viewBox", `0 0 620 ${H + 20}`);
+  svg.innerHTML = out;
+}
+
+// ---------------------------------------------------------------- step 4
+function renderDecision() {
+  const box = $("cmp-bars"); box.innerHTML = "";
+  if (!root) { $("verdict").textContent = "The game is over."; $("aimove").disabled = true; return; }
+  $("aimove").disabled = busy || S.toMove !== aiSide;
+  const tot = Math.max(1, root.n);
+  for (let m = 0; m < N; m++) {
+    const ch = root.children.get(m), p = inst.prior[m];
+    const share = ch ? ch.n / tot : 0;
+    box.insertAdjacentHTML("beforeend", `<span class="mono">${LET[m]}</span>
+      <span style="display:grid;gap:3px"><span class="t"><i class="i-prior" style="width:${p ? (p * 100).toFixed(1) : 0}%"></i></span><span class="t"><i class="i-visit" style="width:${(share * 100).toFixed(1)}%"></i></span></span>
+      <span class="mono" style="font-size:.75rem">${p === undefined ? "empty" : pct(p) + "<br>" + pct(share)}</span>`);
+  }
+  const instBest = Object.entries(inst.prior).sort((a, b) => b[1] - a[1])[0][0] * 1;
+  if (root.n === 0) { $("verdict").textContent = `Instinct alone would play ${LET[instBest]}. Run some simulations in step 3 to see whether thinking ahead agrees.`; return; }
+  const best = mostVisited(), ch = root.children.get(best);
+  const e = effects[instBest];
+  let why = "";
+  if (best !== instBest && e.theirs) why = ` Move ${LET[instBest]} would hand the opponent ${e.theirs} seeds straight away.`;
+  $("verdict").textContent = best === instBest
+    ? `After ${root.n} simulations, thinking ahead agrees with instinct: ${LET[best]}, with a win estimate of ${pct((ch.q() + 1) / 2)}.`
+    : `Thinking ahead changed its mind. Instinct said ${LET[instBest]}, but after ${root.n} simulations it prefers ${LET[best]} (win estimate ${pct((ch.q() + 1) / 2)}).${why}`;
+}
+
+// ---------------------------------------------------------------- step 5
+function renderProgress() {
+  const pick = [1, 2, 5, 10, 30, LOG[LOG.length - 1].iteration];
+  $("prog").innerHTML = pick.map(i => LOG.find(r => r.iteration === i)).filter(Boolean)
+    .map(r => `<div><b>${pct(r.vs_minimax3)}</b><span>after round ${r.iteration}</span></div>`).join("");
+  const games = LOG.length * 192;
+  $("prog-note").textContent = `Wins against a program that looks 3 moves ahead, after each training round. The AI on this page trained for ${LOG.length} rounds of 192 games each (${games.toLocaleString("en")} games), which took about 6 minutes on a laptop.`;
+}
+
+function renderAll() { renderBoard(); renderEncoding(); renderInstinct(); renderSearch(); renderDecision(); }
+
+// ---------------------------------------------------------------- wiring
+for (const id of Object.keys(EXAMPLES)) $(id).addEventListener("click", () => {
+  for (const x of Object.keys(EXAMPLES)) $(x).setAttribute("aria-pressed", String(x === id));
+  setPosition(EXAMPLES[id]);
+});
+$("undo").addEventListener("click", () => {
+  if (!history.length || busy) return;
+  thinkToken++;
+  S = Object.assign(Nchoro.initial(rules), history.pop());
+  $("movemsg").textContent = "Took back the last move.";
+  analyse(false);
+});
+$("s1").addEventListener("click", () => runSims(1));
+$("s10").addEventListener("click", () => runSims(10));
+$("s100").addEventListener("click", () => runSims(100));
+$("s800").addEventListener("click", () => runSims("to800"));
+$("sreset").addEventListener("click", () => { if (!busy) { thinkToken++; analyse(false); } });
+$("aimove").addEventListener("click", () => {
+  if (!root || busy || S.toMove !== aiSide) return;
+  thinkToken++;
+  if (root.n < 200) mcts.simulate(root, 200 - root.n);
+  playMove(mostVisited());
+});
+
+renderProgress();
+setPosition(EXAMPLES["ex-open"]);
+</script>

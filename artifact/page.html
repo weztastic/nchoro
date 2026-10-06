@@ -1,0 +1,627 @@
+<title>Nchoro Amarachi style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one column; the carved board is the hero, controls above it, game notes and the testers' record below. */
+:root {
+  --ground: #e8ebe3;         /* leaf-grey page */
+  --surface: #f5f6f1;
+  --ink: #1c221e;
+  --muted: #5d6860;
+  --rule: #cfd5cb;
+  --indigo: #2e3d8c;         /* adire indigo: the accent */
+  --indigo-ink: #ffffff;
+  --camwood: #a3402a;        /* ufie camwood red: captures only */
+  --good: #2f7a45;
+  --wood: #7a4724;
+  --wood-deep: #4b2a14;
+  --pit: #2c180b;
+  --pit-lit: #4a2a13;
+  --seed: #c8c7b3;           /* grey nicker seed */
+  --seed-edge: #8d8b74;
+  --on-wood: #f1e6d6;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Verdana", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --step--1: 0.8125rem; --step-0: 0.9375rem; --step-1: 1.125rem; --step-2: 1.5rem; --step-4: clamp(2.1rem, 5vw, 3.4rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #121613; --surface: #1a1f1b; --ink: #e5e8e1; --muted: #9aa49c; --rule: #2c332e;
+    --indigo: #8e9bf0; --indigo-ink: #10142c; --camwood: #ea8466; --good: #6cc489;
+    --wood: #6a3d1f; --wood-deep: #3b200f; --pit: #1f1007; --pit-lit: #3d2210;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #121613; --surface: #1a1f1b; --ink: #e5e8e1; --muted: #9aa49c; --rule: #2c332e;
+  --indigo: #8e9bf0; --indigo-ink: #10142c; --camwood: #ea8466; --good: #6cc489;
+  --wood: #6a3d1f; --wood-deep: #3b200f; --pit: #1f1007; --pit-lit: #3d2210;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: var(--step-0)/1.5 var(--font-body); }
+.wrap { max-width: 1000px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 22px; }
+
+header { display: grid; gap: 6px; }
+h1 { font: 800 var(--step-4)/1 var(--font-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h1 em { font-style: normal; font-weight: 500; color: var(--muted); }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+.lede b { color: var(--ink); }
+
+/* ---------- setup strip */
+.setup { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; }
+.field { display: grid; gap: 5px; }
+.field > span { font-size: var(--step--1); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--ink); font: 600 var(--step--1)/1 var(--font-body);
+              padding: 8px 13px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--indigo); color: var(--indigo-ink); }
+.btn { font: 700 var(--step-0)/1 var(--font-body); padding: 11px 18px; border-radius: 999px; cursor: pointer;
+       border: 1px solid var(--rule); background: var(--surface); color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+button:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+
+/* ---------- the board */
+.table { display: grid; gap: 8px; }
+.side-name { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+             font: 700 var(--step-1)/1.2 var(--font-display); }
+.side-name small { font: 400 var(--step--1)/1.2 var(--font-body); color: var(--muted); }
+.side-name .turn { font: 700 var(--step--1)/1 var(--font-body); color: var(--indigo-ink); background: var(--indigo);
+                   padding: 4px 9px; border-radius: 999px; visibility: hidden; }
+.side-name.active .turn { visibility: visible; }
+.board-scroll { overflow-x: auto; padding-block: 4px; }
+.board { --n: 6; position: relative; display: grid; min-width: 600px;
+         grid-template-columns: 82px repeat(var(--n), 1fr) 82px; grid-template-rows: auto auto;
+         gap: 34px 12px; padding: 34px 18px; border-radius: 40px;
+         background:
+           repeating-linear-gradient(94deg, rgba(0,0,0,.09) 0 2px, transparent 2px 11px),
+           repeating-linear-gradient(88deg, rgba(255,255,255,.04) 0 1px, transparent 1px 23px),
+           linear-gradient(170deg, var(--wood), var(--wood-deep));
+         box-shadow: inset 0 2px 0 rgba(255,255,255,.14), inset 0 -6px 14px rgba(0,0,0,.35), 0 14px 30px rgba(0,0,0,.22); }
+.store { grid-row: 1 / span 2; border-radius: 40px; background: var(--pit);
+         box-shadow: inset 0 6px 14px rgba(0,0,0,.6); display: grid; place-content: center; justify-items: center;
+         gap: 2px; color: var(--on-wood); }
+.store .num { font: 600 2rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.store .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+.store.hit { animation: hit .6s; }
+.pit { position: relative; aspect-ratio: 1; border-radius: 50%; background: var(--pit); border: 0; padding: 0;
+       box-shadow: inset 0 6px 12px rgba(0,0,0,.65); transition: background .12s, box-shadow .12s; cursor: default; }
+.pit .tag { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center;
+            white-space: nowrap; color: var(--on-wood); font: 500 11px/1 var(--font-mono); }
+.bottom .tag { top: calc(100% + 7px); }
+.top .tag { bottom: calc(100% + 7px); }
+.pit .tag b { font: 600 13px/1 var(--font-mono); background: rgba(0,0,0,.4); padding: 3px 7px; border-radius: 8px; }
+.seed { position: absolute; width: 14%; height: 14%; border-radius: 50%; transform: translate(-50%, -50%);
+        background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.75), transparent 45%), var(--seed);
+        box-shadow: 0 1px 1px rgba(0,0,0,.5); border: 1px solid var(--seed-edge); }
+.pit.legal { cursor: pointer; box-shadow: inset 0 6px 12px rgba(0,0,0,.65), 0 0 0 3px var(--seed); }
+.pit.legal:hover, .pit.legal:focus-visible { background: var(--pit-lit); outline: none; }
+.pit.from { box-shadow: inset 0 6px 12px rgba(0,0,0,.65), 0 0 0 3px #f2c14e; }
+.pit.drop { background: var(--pit-lit); }
+.pit.take { box-shadow: inset 0 6px 12px rgba(0,0,0,.65), 0 0 0 4px var(--camwood); animation: hit .6s; }
+.pit .pref { position: absolute; left: 18%; right: 18%; height: 5px; border-radius: 3px; background: rgba(0,0,0,.45); overflow: hidden; }
+.bottom .pref { bottom: 9%; } .top .pref { top: 9%; }
+.pit .pref i { display: block; height: 100%; background: #f2c14e; }
+@keyframes hit { 50% { filter: brightness(1.9); } }
+
+/* ---------- below the board */
+.lower { display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px; }
+@media (max-width: 760px) { .lower { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 18px; padding: 18px; display: grid; gap: 12px; align-content: start; }
+h2 { margin: 0; font: 700 var(--step-1)/1.2 var(--font-display); }
+.status { font: 700 var(--step-1)/1.35 var(--font-display); min-height: 1.35em; }
+.detail { color: var(--muted); min-height: 1.5em; font-size: var(--step--1); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.controls label { display: flex; gap: 8px; align-items: center; font-size: var(--step--1); color: var(--muted); }
+input[type=range] { accent-color: var(--indigo); }
+.meter { display: grid; gap: 4px; }
+.meter .bar { height: 10px; border-radius: 5px; background: var(--rule); overflow: hidden; display: flex; }
+.meter .bar i { display: block; height: 100%; background: var(--indigo); transition: width .4s; }
+.meter .ends { display: flex; justify-content: space-between; font: 500 var(--step--1)/1 var(--font-mono); color: var(--muted); }
+.log { max-height: 250px; overflow-y: auto; font: 500 var(--step--1)/1.6 var(--font-mono); font-variant-numeric: tabular-nums;
+       display: grid; align-content: start; }
+.log div { border-bottom: 1px dashed var(--rule); padding-block: 2px; }
+.log .cap { color: var(--camwood); font-weight: 600; }
+.empty { color: var(--muted); font-size: var(--step--1); }
+
+/* ---------- testers' record */
+.record-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between; }
+.tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .tally { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tally div { display: grid; gap: 2px; }
+.tally b { font: 600 var(--step-2)/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.tally span { font-size: var(--step--1); color: var(--muted); }
+.recent { display: grid; gap: 0; font-size: var(--step--1); }
+.recent div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--rule); padding-block: 6px; }
+.recent .who { font-weight: 700; }
+.pill { font: 700 11px/1 var(--font-body); padding: 4px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .06em; }
+.pill.win { background: var(--good); color: var(--surface); }
+.pill.loss { background: var(--camwood); color: var(--surface); }
+.pill.draw { background: var(--rule); color: var(--ink); }
+.saved { font-size: var(--step--1); color: var(--muted); }
+
+.share { display: grid; gap: 8px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.share p { margin: 0; font-size: var(--step--1); color: var(--muted); }
+.share textarea { width: 100%; min-height: 7.5em; resize: vertical; border: 1px solid var(--rule); border-radius: 10px;
+                  padding: 10px; background: var(--ground); color: var(--ink); font: 500 12px/1.5 var(--font-mono); }
+.share .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.share .ok { font-size: var(--step--1); color: var(--good); font-weight: 700; }
+
+details.rules summary { cursor: pointer; font: 700 var(--step-1)/1.2 var(--font-display); }
+details.rules ol { margin: 10px 0 0; padding-left: 1.3em; display: grid; gap: 6px; max-width: 68ch; }
+details.rules li::marker { font-family: var(--font-mono); color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .store.hit, .pit.take { animation: none; }
+  .meter .bar i { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Nchoro <em>Amarachi style</em></h1>
+    <p class="lede">A relay-sowing mancala from Nigeria. Pick a pit on your side and sow its seeds anticlockwise.
+      If your last seed lands in a filled pit, pick those up and keep going. <b>Any pit that reaches exactly 4 is taken at once by its owner</b>,
+      except that a last seed making 4 is yours to take, on either side.
+      The game ends when 4 or fewer seeds are left.</p>
+  </header>
+
+  <div class="setup" role="group" aria-label="Game setup">
+    <div class="field"><span>Mode</span>
+      <div class="seg" id="mode">
+        <button id="mode-play" data-v="play" aria-pressed="true">Play the AI</button>
+        <button id="mode-watch" data-v="watch" aria-pressed="false">Watch AI vs AI</button>
+      </div>
+    </div>
+    <div class="field" id="first-field"><span>First move</span>
+      <div class="seg" id="first">
+        <button id="first-me" data-v="0" aria-pressed="true">You</button>
+        <button id="first-ai" data-v="1" aria-pressed="false">AI</button>
+      </div>
+    </div>
+    <div class="field"><span>AI strength</span>
+      <div class="seg" id="level">
+        <button id="level-easy" data-v="easy" aria-pressed="false">Easy</button>
+        <button id="level-gentle" data-v="gentle" aria-pressed="false">Gentle</button>
+        <button id="level-strong" data-v="strong" aria-pressed="true">Strong</button>
+        <button id="level-full" data-v="full" aria-pressed="false">Full</button>
+      </div>
+    </div>
+    <button class="btn primary" id="new">New game</button>
+  </div>
+
+  <section class="table" aria-label="Board">
+    <div class="side-name" id="name-top"><span id="label-top">AI</span><span class="turn">to move</span></div>
+    <div class="board-scroll"><div class="board" id="board"></div></div>
+    <div class="side-name" id="name-bottom"><span id="label-bottom">You</span><span class="turn">to move</span></div>
+  </section>
+
+  <div class="lower">
+    <section class="card" aria-live="polite">
+      <div class="status" id="status">Loading…</div>
+      <div class="detail" id="detail"></div>
+      <div class="controls">
+        <button class="btn" id="play" hidden>Play</button>
+        <button class="btn" id="step" hidden>Step</button>
+        <button class="btn" id="skip" disabled>Skip animation</button>
+        <label for="speed">Speed <input type="range" id="speed" min="0" max="100" value="55"></label>
+      </div>
+      <div class="meter">
+        <div class="ends"><span id="win-bottom">You –</span><span>AI's estimate</span><span id="win-top">AI –</span></div>
+        <div class="bar"><i id="win-bar" style="width:50%"></i></div>
+      </div>
+      <div class="detail">Yellow bars in the AI's pits show how much it considered each move. Easy only looks at what each move captures right now, so it shows just its choice and no win estimate.</div>
+      <div class="share" id="share" hidden>
+        <p>Testing the game? Send this record to whoever shared the page with you.</p>
+        <div class="row">
+          <button class="btn primary" id="copy" type="button">Copy game record</button>
+          <span class="ok" id="copied" role="status"></span>
+        </div>
+        <label for="record-text" class="detail">Or select the text below and copy it yourself.</label>
+        <textarea id="record-text" readonly></textarea>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Moves</h2>
+      <div class="log" id="log"><div class="empty">Moves appear here as the game is played.</div></div>
+    </section>
+  </div>
+
+  <section class="card" id="record">
+    <div class="record-head">
+      <h2>Testers vs the AI</h2>
+      <span class="saved" id="record-note">Connecting to the shared record…</span>
+    </div>
+    <div class="tally">
+      <div><b id="t-games">0</b><span>games finished</span></div>
+      <div><b id="t-wins">0</b><span>won by testers</span></div>
+      <div><b id="t-draws">0</b><span>drawn</span></div>
+      <div><b id="t-people">0</b><span>testers</span></div>
+    </div>
+    <div class="recent" id="recent"><div class="empty">No games recorded yet. Finish a game against the AI to add the first one.</div></div>
+  </section>
+
+  <details class="rules card">
+    <summary>Full rules</summary>
+    <ol>
+      <li>The board has 2 rows of 6 pits. Each player owns the row nearest them. Every pit starts with 4 seeds (48 in total).</li>
+      <li>On your turn, choose any non-empty pit on your side. Take all its seeds and sow them anticlockwise, one per pit.</li>
+      <li>On a full lap of 12 or more seeds, the pit you started from gets a seed too.</li>
+      <li>Whenever a seed you sow brings a pit to exactly 4, the owner of that pit takes the 4 seeds straight away, even if it's your opponent. Then you keep sowing.</li>
+      <li>The last seed is the exception. If it makes a pit exactly 4, on either side, you take them and your turn ends.</li>
+      <li>If the last seed lands in an empty pit, your turn ends. Otherwise pick up everything in that pit and keep sowing (a relay).</li>
+      <li>If the player whose turn it is has no seeds on their side, they pass and the other player plays again.</li>
+      <li>When 4 or fewer seeds are left after a turn, the game ends. Each player takes the seeds on their own side. Most seeds wins; 24–24 is a draw.</li>
+      <li>Computer safety limits: a relay that runs for 200 laps is stopped there, and a game ends after 300 moves.</li>
+    </ol>
+  </details>
+</div>
+
+<script>/*__ENGINE__*/</script>
+<script>
+"use strict";
+const MODEL = /*__WEIGHTS__*/null;
+const LEVELS = { easy: { sims: 0, label: "Easy" }, gentle: { sims: 24, label: "Gentle" }, strong: { sims: 200, label: "Strong" }, full: { sims: 800, label: "Full" } };
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+// ---------------------------------------------------------------- model
+const dec = b64 => { const s = atob(b64), u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new Float32Array(u.buffer); };
+const layer = l => ({ in: l.in, out: l.out, w: dec(l.w), b: dec(l.b) });
+const rules = Nchoro.makeRules(MODEL.rules);
+const net = Nchoro.makeNet({ layers: MODEL.layers.map(layer), policy: layer(MODEL.policy), value: layer(MODEL.value) });
+const mcts = new Nchoro.MCTS(net);
+const N = rules.pits;
+const letter = abs => "abcdef"[abs % N];
+
+// ---------------------------------------------------------------- settings
+const settings = { mode: "play", first: 0, level: "strong" };
+for (const [group, key] of [["mode", "mode"], ["first", "first"], ["level", "level"]]) {
+  $(group).addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    settings[key] = key === "first" ? +b.dataset.v : b.dataset.v;
+    for (const x of $(group).children) x.setAttribute("aria-pressed", String(x === b));
+    $("first-field").hidden = settings.mode === "watch";
+  });
+}
+const speedDelay = () => skip ? 0 : Math.round(650 * Math.pow(0.03, $("speed").value / 100));
+try { if (matchMedia("(prefers-reduced-motion: reduce)").matches) $("speed").value = 85; } catch (e) {}
+
+// ---------------------------------------------------------------- game state
+let S = null, game = null, busy = false, autoplay = false, skip = false;
+let shown = null, marks = {}, prefs = null;
+
+// The viewer's side always sits at the bottom. In watch mode, AI 1 is at the bottom.
+const bottomSide = () => game.human === null ? 0 : game.human;
+const nameOf = p => game.human === null ? `AI ${p + 1}` : (p === game.human ? "You" : "AI");
+
+function newGame() {
+  if (busy) return;
+  if (game && game.human !== null && game.moves.length && S.winner === null) saveGame("abandoned");
+  const watch = settings.mode === "watch";
+  game = { id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+           human: watch ? null : (settings.first === 0 ? 0 : 1), level: settings.level,
+           moves: [], startedAt: new Date().toISOString(), saved: false };
+  S = Nchoro.initial(rules);
+  shown = { board: S.board.slice(), scores: S.scores.slice() };
+  marks = {}; prefs = null; autoplay = !watch; skip = false;
+  $("share").hidden = true;
+  $("log").innerHTML = '<div class="empty">Moves appear here as the game is played.</div>';
+  setWin(null);
+  buildBoard(); render(); controls(); next();
+}
+
+function buildBoard() {
+  const b = $("board"), me = bottomSide(), them = 1 - me;
+  b.innerHTML = "";
+  const store = (p, col) => { const d = document.createElement("div"); d.className = "store"; d.id = "store" + p;
+    d.style.gridColumn = col; d.innerHTML = `<span class="num">0</span><span class="lbl"></span>`;
+    d.querySelector(".lbl").textContent = nameOf(p); return d; };
+  b.appendChild(store(them, "1"));
+  for (let k = 0; k < N; k++) b.appendChild(pitEl(them * N + (N - 1 - k), "top", 1, k + 2));
+  b.appendChild(store(me, String(N + 2)));
+  for (let k = 0; k < N; k++) b.appendChild(pitEl(me * N + k, "bottom", 2, k + 2));
+  $("label-top").textContent = nameOf(them);
+  $("label-bottom").textContent = nameOf(me);
+}
+
+function pitEl(abs, cls, row, col) {
+  const d = document.createElement("button");
+  d.className = "pit " + cls; d.id = "pit" + abs; d.type = "button";
+  d.style.gridRow = row; d.style.gridColumn = col;
+  d.addEventListener("click", () => humanMove(abs));
+  return d;
+}
+
+const seedXY = k => { const r = Math.min(34, 31 * Math.sqrt((k + 0.5) / 16)), a = k * 2.39996;
+  return [50 + r * Math.cos(a), 50 + r * Math.sin(a)]; };
+const isHumanTurn = () => S && S.winner === null && game.human === S.toMove;
+
+function render() {
+  const legal = isHumanTurn() && !busy ? Nchoro.legalMoves(S) : [];
+  for (let i = 0; i < 2 * N; i++) {
+    const el = $("pit" + i), c = shown.board[i], own = Math.floor(i / N);
+    let html = `<span class="tag">${letter(i)}<b>${c}</b></span>`;
+    for (let k = 0; k < Math.min(c, 44); k++) { const [x, y] = seedXY(k);
+      html += `<span class="seed" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"></span>`; }
+    if (prefs && own === prefs.player) html += `<span class="pref"><i style="width:${Math.round(100 * prefs.v[i % N])}%"></i></span>`;
+    el.innerHTML = html;
+    el.classList.remove("legal", "from", "drop", "take");
+    if (marks[i]) el.classList.add(marks[i]);
+    const isLegal = own === S.toMove && legal.includes(i % N);
+    if (isLegal) el.classList.add("legal");
+    el.disabled = !isLegal;
+    el.setAttribute("aria-label", `pit ${letter(i)}, ${nameOf(own)}, ${c} seeds`);
+  }
+  for (const p of [0, 1]) $("store" + p).querySelector(".num").textContent = shown.scores[p];
+  const me = bottomSide();
+  $("name-bottom").classList.toggle("active", S.winner === null && S.toMove === me);
+  $("name-top").classList.toggle("active", S.winner === null && S.toMove !== me);
+}
+
+function controls() {
+  const watch = game && game.human === null;
+  $("play").hidden = $("step").hidden = !watch;
+  $("play").textContent = autoplay ? "Pause" : "Play";
+  $("play").disabled = !S || S.winner !== null;
+  $("step").disabled = !S || S.winner !== null || busy;
+  $("skip").disabled = !busy;
+}
+
+async function next() {
+  if (busy || !S) return;
+  controls();
+  if (S.winner !== null) return finish();
+  if (isHumanTurn()) { $("status").textContent = "Your move. Choose a pit on your side."; render(); return; }
+  if (game.human === null && !autoplay) { $("status").textContent = "Paused. Press Play or Step."; return; }
+  await aiMove();
+}
+
+// Easy: look one move ahead only. Take the move that captures the most this turn, minus what it
+// hands the opponent; ties are broken at random. The opponent's reply is never considered.
+async function easyMove() {
+  const mover = S.toMove, legal = Nchoro.legalMoves(S);
+  $("status").textContent = `${nameOf(mover)} is thinking…`;
+  await sleep(350);
+  let best = [], bestNet = -Infinity;
+  for (const m of legal) {
+    const tr = []; Nchoro.play(S, m, tr);
+    let net = 0;
+    for (const e of tr) if (e.type === "capture") net += e.player === mover ? e.count : -e.count;
+    if (net > bestNet) { bestNet = net; best = [m]; } else if (net === bestNet) best.push(m);
+  }
+  const move = best[Math.floor(Math.random() * best.length)];
+  const visits = new Array(N).fill(0); visits[move] = 1;
+  await doMove(move, { visits, win: null });
+}
+
+async function aiMove() {
+  busy = true; controls();
+  if (game.level === "easy") return easyMove();
+  const mover = S.toMove, sims = LEVELS[game.level].sims;
+  const root = mcts.root(S);
+  for (let done = 0; done < sims; done += 25) {
+    mcts.simulate(root, Math.min(25, sims - done));
+    $("status").textContent = `${nameOf(mover)} is thinking…`;
+    await frame();
+  }
+  const move = mcts.best(root);
+  const visits = new Array(N).fill(0);
+  for (const [m, ch] of root.children) visits[m] = ch.n;
+  const total = visits.reduce((a, b) => a + b, 0) || 1;
+  const win = (root.children.get(move).q() + 1) / 2;
+  await doMove(move, { visits: visits.map(v => v / total), win });
+}
+
+async function humanMove(abs) {
+  if (!isHumanTurn() || busy || Math.floor(abs / N) !== S.toMove) return;
+  const m = abs % N;
+  if (!Nchoro.legalMoves(S).includes(m)) return;
+  busy = true; prefs = null; controls();
+  await doMove(m, null);
+}
+
+async function doMove(move, info) {
+  const before = S, mover = S.toMove, trace = [];
+  const after = Nchoro.play(S, move, trace);
+  game.moves.push([mover, move]);
+  if (info) {
+    prefs = { player: mover, v: info.visits };
+    if (info.win !== null) setWin(mover === bottomSide() ? info.win : 1 - info.win);
+  }
+  else prefs = null;
+  await animate(before, mover, move, trace, after);
+  S = after;
+  busy = false; skip = false; controls(); render();
+  if (S.winner !== null) return finish();
+  if (game.human === null && autoplay) await sleep(Math.max(200, speedDelay() * 2));
+  next();
+}
+
+async function animate(before, mover, move, trace, after) {
+  shown = { board: before.board.slice(), scores: before.scores.slice() };
+  marks = {}; render();
+  const start = mover * N + move;
+  $("status").textContent = `${nameOf(mover)} ${game.human === mover ? "play" : "plays"} ${letter(start)}.`;
+  await sleep(speedDelay() * 2);
+  const fast = trace.length > 260;
+  let hand = 0, laps = 0, cut = false, passed = null;
+  const took = [0, 0];
+  for (const ev of trace) {
+    const d = fast ? Math.min(speedDelay(), 3500 / trace.length) : speedDelay();
+    if (ev.type === "pickup") {
+      laps++; hand = ev.count; shown.board[ev.pit] = 0; marks = { [ev.pit]: "from" }; render();
+      $("detail").textContent = `Lap ${laps}: picked up ${ev.count} from ${letter(ev.pit)} on ${nameOf(Math.floor(ev.pit / N))}'s side.`;
+      if (d) await sleep(d * 1.6);
+    } else if (ev.type === "sow") {
+      hand--; shown.board[ev.pit]++;
+      for (const k in marks) if (marks[k] === "drop") delete marks[k];
+      marks[ev.pit] = "drop"; render();
+      $("detail").textContent = `Lap ${laps}: ${hand} seed${hand === 1 ? "" : "s"} in hand.`;
+      if (d) await sleep(d);
+    } else if (ev.type === "capture") {
+      marks = { [ev.pit]: "take" }; render(); if (d) await sleep(d * 3);
+      shown.board[ev.pit] = 0; shown.scores[ev.player] += ev.count; took[ev.player] += ev.count;
+      $("detail").textContent = `${nameOf(ev.player)} ${ev.player === game.human ? "take" : "takes"} 4 from ${letter(ev.pit)}.`;
+      const st = $("store" + ev.player); st.classList.remove("hit"); void st.offsetWidth; st.classList.add("hit");
+      render(); if (d) await sleep(d * 2);
+    } else if (ev.type === "lap_limit") cut = true;
+    else if (ev.type === "pass") passed = ev.player;
+  }
+  shown = { board: after.board.slice(), scores: after.scores.slice() };
+  marks = {};
+  const bits = [];
+  if (laps > 1) bits.push(`${laps} laps`);
+  for (const p of [mover, 1 - mover])
+    if (took[p]) bits.push(`${nameOf(p)} took ${took[p]}`);
+  if (cut) bits.push("endless relay stopped at 200 laps");
+  if (passed !== null) bits.push(`${nameOf(passed)} ${passed === game.human ? "have" : "has"} no seeds, so ${nameOf(mover)} ${mover === game.human ? "play" : "plays"} again`);
+  $("detail").textContent = bits.join(" · ");
+  log(mover, letter(start), laps, took, cut, passed, after.moveCount);
+  if (passed !== null && !skip) await sleep(Math.max(700, speedDelay() * 4));
+}
+
+function log(mover, l, laps, took, cut, passed, n) {   // took = seeds captured per player
+  const box = $("log");
+  if (box.querySelector(".empty")) box.innerHTML = "";
+  const d = document.createElement("div");
+  d.textContent = `${String(n).padStart(3, " ")}  ${nameOf(mover).padEnd(4, " ")} ${l}` + (laps > 1 ? `  ${laps} laps` : "");
+  for (const p of [mover, 1 - mover]) if (took[p]) {
+    const s = document.createElement("span"); s.className = "cap";
+    s.textContent = p === mover ? `  +${took[p]}` : `  ${nameOf(p)} +${took[p]}`; d.appendChild(s);
+  }
+  if (cut) d.append("  relay stopped");
+  if (passed !== null) d.append(`  ${nameOf(passed)} pass${passed === game.human ? "" : "es"}`);
+  box.prepend(d);
+}
+
+function finish() {
+  const w = S.winner, me = bottomSide();
+  let text;
+  if (w === -1) text = `Draw, ${S.scores[0]}–${S.scores[1]}.`;
+  else if (game.human === null) text = `AI ${w + 1} wins ${S.scores[w]}–${S.scores[1 - w]}.`;
+  else text = w === game.human ? `You win ${S.scores[w]}–${S.scores[1 - w]}.` : `The AI wins ${S.scores[w]}–${S.scores[1 - w]}.`;
+  $("status").textContent = text;
+  $("detail").textContent = `${S.endReason[0].toUpperCase() + S.endReason.slice(1)}. Each player took the seeds on their side.`;
+  autoplay = false; controls(); render();
+  if (game.human !== null) { showShare(); saveGame("finished"); }
+}
+
+function setWin(pBottom) {
+  const me = bottomSide();
+  if (pBottom === null) { $("win-bar").style.width = "50%"; $("win-bottom").textContent = `${nameOf(me)} –`;
+    $("win-top").textContent = `${nameOf(1 - me)} –`; return; }
+  $("win-bar").style.width = (pBottom * 100).toFixed(0) + "%";
+  $("win-bottom").textContent = `${nameOf(me)} ${(pBottom * 100).toFixed(0)}%`;
+  $("win-top").textContent = `${nameOf(1 - me)} ${((1 - pBottom) * 100).toFixed(0)}%`;
+}
+
+// ---------------------------------------------------------------- shared test record (db)
+let db = null, user = null, myId = null, canSave = false;
+
+function gameRecord(status) {
+  const hs = game.human, result = S.winner === null ? null : S.winner === -1 ? "draw" : S.winner === hs ? "human" : "ai";
+  return {
+    v: 1, status, humanSide: hs + 1, level: game.level, sims: LEVELS[game.level].sims,
+    model: MODEL.iteration, rulesId: MODEL.rules_id, startedAt: game.startedAt, finishedAt: new Date().toISOString(),
+    moves: game.moves.map(([p, m]) => `${p + 1}${letter(m)}`).join(" "), moveCount: game.moves.length,
+    scores: { human: S.scores[hs], ai: S.scores[1 - hs] }, result, endReason: S.endReason,
+  };
+}
+
+function shareText(rec) {
+  const outcome = rec.result === "human" ? "won" : rec.result === "ai" ? "lost" : "drew";
+  return [
+    "Nchoro Amarachi style: game record",
+    `I ${outcome} ${rec.scores.human}-${rec.scores.ai} against the ${LEVELS[rec.level].label} AI, moving ${rec.humanSide === 1 ? "first" : "second"}.`,
+    `${rec.moveCount} moves. ${rec.endReason[0].toUpperCase() + rec.endReason.slice(1)}.`,
+    `Moves (player + pit): ${rec.moves}`,
+    "NCHORO-RECORD " + JSON.stringify(rec),
+  ].join("\n");
+}
+
+function showShare() {
+  $("record-text").value = shareText(gameRecord("finished"));
+  $("copied").textContent = "";
+  $("share").hidden = false;
+}
+
+async function copyRecord() {
+  const box = $("record-text");
+  try {
+    await navigator.clipboard.writeText(box.value);
+    $("copied").textContent = "Copied. Paste it into a message.";
+  } catch (e) {
+    box.focus(); box.select();
+    $("copied").textContent = "Your browser blocked copying here. The text is selected: press Ctrl+C or ⌘C.";
+  }
+}
+
+async function saveGame(status) {
+  if (!db || !canSave || game.saved || !myId) return;
+  game.saved = true;
+  const doc = Object.assign(gameRecord(status), { player: myId });
+  try {
+    await db.collection("games").doc(game.id).set(doc);
+    if (status === "finished") $("detail").textContent += " Saved to the testers' record.";
+  } catch (e) {
+    game.saved = false;
+    if (e && e.code === "invalid_argument") { canSave = false; $("record-note").textContent = "You have view-only access, so your games aren't recorded."; }
+    else if (e && e.code === "quota_exceeded") $("record-note").textContent = "The record is full, so this game wasn't saved.";
+    else $("record-note").textContent = "This game couldn't be saved. The next one will try again.";
+  }
+}
+
+async function renderRecord(docs) {
+  const done = docs.filter(d => d.status === "finished" && d.result);
+  $("t-games").textContent = done.length;
+  $("t-wins").textContent = done.filter(d => d.result === "human").length;
+  $("t-draws").textContent = done.filter(d => d.result === "draw").length;
+  $("t-people").textContent = new Set(docs.map(d => d.player)).size;
+  const box = $("recent");
+  if (!done.length) { box.innerHTML = '<div class="empty">No games recorded yet. Finish a game against the AI to add the first one.</div>'; return; }
+  const recent = done.slice(0, 8);
+  const people = user ? await user.profiles(recent.map(d => d.player)) : {};
+  box.innerHTML = "";
+  for (const d of recent) {
+    const row = document.createElement("div");
+    const left = document.createElement("span");
+    const who = document.createElement("span"); who.className = "who";
+    who.textContent = (people[d.player] && people[d.player].name) || (d.player === myId ? "You" : "A tester");
+    left.append(who, ` vs ${LEVELS[d.level] ? LEVELS[d.level].label : d.level} AI · ${d.scores.human}–${d.scores.ai} · ${d.moveCount} moves`);
+    const pill = document.createElement("span");
+    pill.className = "pill " + (d.result === "human" ? "win" : d.result === "ai" ? "loss" : "draw");
+    pill.textContent = d.result === "human" ? "won" : d.result === "ai" ? "lost" : "draw";
+    row.append(left, pill); box.appendChild(row);
+  }
+}
+
+async function connectRecord() {
+  if (!window.claude || !window.claude.use) { $("record-note").textContent = "Open this page on claude.ai to see and add to the record."; return; }
+  [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  if (!db) { $("record-note").textContent = "Sign in to claude.ai to see the record and save your games."; return; }
+  myId = user ? await user.id() : null;
+  const can = user ? await user.can("data.write") : null;
+  canSave = !!myId && can !== false;
+  $("record-note").textContent = canSave ? "Your finished games are added automatically." : "You have view-only access, so your games aren't recorded.";
+  db.collection("games").orderBy("finishedAt", "desc").limit(1000).onSnapshot(
+    snap => renderRecord(snap.docs.map(d => d.data())),
+    () => { $("record-note").textContent = "The record isn't available right now."; });
+}
+
+// ---------------------------------------------------------------- wiring
+$("new").addEventListener("click", newGame);
+$("play").addEventListener("click", () => { autoplay = !autoplay; controls(); if (autoplay) next(); });
+$("step").addEventListener("click", () => { if (!busy && S.winner === null) aiMove(); });
+$("skip").addEventListener("click", () => { skip = true; });
+$("copy").addEventListener("click", copyRecord);
+
+newGame();
+connectRecord();
+</script>
